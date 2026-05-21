@@ -1,931 +1,957 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useEffect } from 'react';
 import { 
-  LayoutDashboard, 
-  PackagePlus, 
-  ShoppingCart, 
   Store, 
   ArrowLeft, 
-  Plus, 
-  Trash2, 
+  UserPlus, 
   Save, 
-  CheckCircle2,
-  Search,
-  ChevronRight,
-  Users,
-  UserPlus,
-  ShieldCheck,
-  LogOut,
-  LogIn
+  LogIn, 
+  Chrome, 
+  Sliders, 
+  ShieldCheck, 
+  X, 
+  Check, 
+  Moon, 
+  Sun,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-// --- Types ---
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  password?: string;
-  role: 'Administrador' | 'Usuario (Cliente)';
+// Import local modular layers
+import { Sidebar } from './components/Sidebar';
+import { ClientDashboard } from './components/ClientDashboard';
+import { AdminDashboard } from './components/AdminDashboard';
+import { Category, Product, User, Pedido, DetallePedido, InventarioItem, VentaItem, Screen, AppTheme } from './types';
+import { 
+  INITIAL_CATEGORIES, 
+  INITIAL_PRODUCTS, 
+  INITIAL_USERS, 
+  INITIAL_PEDIDOS, 
+  INITIAL_DETALLES, 
+  INITIAL_INVENTARIO, 
+  INITIAL_VENTAS 
+} from './utils';
+
+// --- AuthFlow Component (Preserved initial validation/signup experience) ---
+interface AuthFlowProps {
+  users: User[];
+  onLogin: (user: User) => void;
+  onSignup: (u: any) => void;
+  logoutMessage?: string;
 }
 
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-  stock: number;
-}
-
-interface SaleItem extends Product {
-  quantity: number;
-}
-
-type Screen = 'welcome' | 'register' | 'sales' | 'users' | 'login';
-
-// --- Components ---
-
-const Sidebar = ({ currentScreen, setScreen, currentUser, onLogout }: { currentScreen: Screen, setScreen: (s: Screen) => void, currentUser: User | null, onLogout: () => void }) => {
-  const isAdmin = currentUser?.role === 'Administrador';
-  
-  const menuItems = [
-    { id: 'welcome', icon: LayoutDashboard, label: 'Inicio', color: 'text-neon-blue', visible: true },
-    { id: 'register', icon: PackagePlus, label: 'Inventario', color: 'text-neon-yellow', visible: isAdmin },
-    { id: 'sales', icon: ShoppingCart, label: 'Ventas', color: 'text-neon-green', visible: true },
-  ];
-
-  return (
-    <aside id="sidebar" className="fixed left-0 top-0 h-full w-20 md:w-64 bg-black border-r border-white/10 flex flex-col z-50 p-6">
-      <div className="flex items-center gap-3 mb-10">
-        <div className="w-10 h-10 bg-transparent border-2 border-neon-blue rounded-xl flex items-center justify-center text-neon-blue font-bold text-xl glow-blue">
-          <Store size={24} />
-        </div>
-        <span className="hidden md:block font-bold text-xl text-white tracking-widest text-glow-blue uppercase italic">Neon Pro</span>
-      </div>
-      <nav className="flex flex-col gap-4 flex-1">
-        {menuItems.filter(item => item.visible).map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setScreen(item.id as Screen)}
-            className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all relative group ${
-              currentScreen === item.id 
-                ? `bg-white/5 border border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.05)]` 
-                : 'text-white/40 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <item.icon size={20} className={currentScreen === item.id ? item.color : 'group-hover:text-white'} />
-            <span className={`hidden md:block text-sm font-bold tracking-wider ${currentScreen === item.id ? 'text-white' : ''}`}>{item.label}</span>
-            {currentScreen === item.id && (
-              <motion.div 
-                layoutId="navGlow"
-                className={`absolute -right-2 w-1 h-8 rounded-full blur-[2px] ${item.id === 'welcome' ? 'bg-neon-blue' : item.id === 'register' ? 'bg-neon-yellow' : 'bg-neon-green'}`}
-              />
-            )}
-          </button>
-        ))}
-      </nav>
-      
-      <div className="mt-auto space-y-4">
-        {currentUser ? (
-          <button 
-            onClick={onLogout}
-            className="w-full flex items-center gap-4 px-4 py-4 rounded-xl transition-all text-white/40 hover:text-neon-yellow hover:bg-white/5 group border border-transparent hover:border-neon-yellow/20"
-          >
-            <LogOut size={20} className="group-hover:text-neon-yellow group-hover:scale-110 transition-transform" />
-            <span className="hidden md:block text-[10px] font-black tracking-[0.2em] uppercase italic">Cerrar Sesión</span>
-          </button>
-        ) : (
-          <button 
-            onClick={() => setScreen('login')}
-            className="w-full flex items-center gap-4 px-4 py-4 rounded-xl transition-all bg-white/10 border border-white/20 text-white shadow-lg shadow-neon-blue/10"
-          >
-            <LogIn size={20} className="text-neon-blue" />
-            <span className="hidden md:block text-[10px] font-black tracking-[0.2em] uppercase italic">Validación</span>
-          </button>
-        )}
-
-        {isAdmin && currentScreen !== 'login' && (
-          <button 
-            onClick={() => setScreen('users')}
-            className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all group ${
-              currentScreen === 'users' ? 'bg-white/10 border border-white/20 font-black' : 'text-white/40 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Users size={20} className={currentScreen === 'users' ? 'text-neon-yellow' : 'group-hover:text-neon-yellow'} />
-            <span className="hidden md:block text-[10px] font-black tracking-[0.2em] uppercase">Usuarios</span>
-          </button>
-        )}
-        
-        {currentUser && (
-          <div className="p-4 bg-white/5 rounded-2xl border border-white/10 relative overflow-hidden group">
-            <div className="relative z-10">
-              <p className="text-[10px] text-white/30 uppercase font-black tracking-[0.2em] mb-1 italic">Operador Activo</p>
-              <p className={`text-sm font-black text-glow-yellow tracking-tighter ${currentUser.role === 'Administrador' ? 'text-neon-yellow' : 'text-neon-blue'}`}>
-                {currentUser.username}
-              </p>
-              <p className="text-[8px] text-white/20 font-bold uppercase mt-1 tracking-widest">{currentUser.role}</p>
-            </div>
-            <div className={`absolute right-0 top-0 h-full w-1 ${currentUser.role === 'Administrador' ? 'bg-neon-yellow' : 'bg-neon-blue'} opacity-40`}></div>
-          </div>
-        )}
-      </div>
-    </aside>
-  );
-};
-
-
-const WelcomeScreen = ({ stats, setScreen }: { stats: { products: number, sales: number, stock: number }, setScreen: (s: Screen) => void }) => {
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="max-w-5xl mx-auto space-y-12"
-    >
-      <header className="bg-black/40 backdrop-blur-md rounded-3xl p-12 border border-white/10 relative overflow-hidden glow-blue">
-        <div className="relative z-10">
-          <h1 className="text-5xl font-black text-white mb-4 tracking-tighter">
-            TIENDA <span className="text-neon-blue text-glow-blue underline decoration-neon-blue decoration-4 underline-offset-8 italic">NEON</span>
-          </h1>
-          <p className="text-white/60 max-w-lg text-xl font-medium leading-relaxed uppercase tracking-wide">
-            Control de inventario y ventas con tecnología de <span className="text-neon-yellow">alto contraste</span>.
-          </p>
-        </div>
-        <div className="absolute -right-20 -top-20 w-80 h-80 bg-neon-blue/10 rounded-full blur-[100px]"></div>
-        <div className="absolute -left-20 -bottom-20 w-80 h-80 bg-neon-green/5 rounded-full blur-[100px]"></div>
-      </header>
-
-      <div id="stats-grid" className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {[
-          { label: 'Productos', value: stats.products, icon: PackagePlus, color: 'text-neon-blue border-neon-blue shadow-[0_0_15px_rgba(0,243,255,0.2)]', action: () => setScreen('register') },
-          { label: 'Ventas', value: stats.sales, icon: ShoppingCart, color: 'text-neon-green border-neon-green shadow-[0_0_15px_rgba(57,255,20,0.2)]', action: () => setScreen('sales') },
-          { label: 'Artículos', value: stats.stock, icon: Store, color: 'text-neon-yellow border-neon-yellow shadow-[0_0_15px_rgba(255,240,31,0.2)]', action: () => setScreen('register') },
-        ].map((stat, i) => (
-          <button 
-            key={i} 
-            onClick={stat.action}
-            className="bg-white/5 p-8 rounded-[2rem] border border-white/10 flex flex-col gap-6 hover:bg-white/10 transition-all text-left group active:scale-95"
-          >
-            <div className={`w-14 h-14 rounded-xl border flex items-center justify-center shrink-0 ${stat.color.split(' ')[0]} ${stat.color.split(' ')[1]} transition-transform group-hover:scale-110`}>
-              <stat.icon size={28} />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-2">{stat.label}</p>
-              <p className="text-4xl font-black text-white leading-none tracking-tighter">{stat.value}</p>
-            </div>
-          </button>
-        ))}
-      </div>
-
-      <div id="main-menu" className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <button 
-          onClick={() => setScreen('sales')}
-          className="group relative p-12 bg-neon-green rounded-[3rem] text-black transition-all hover:scale-[1.02] active:scale-95 flex justify-between items-center overflow-hidden"
-        >
-          <div className="relative z-10">
-            <h3 className="text-3xl font-black mb-1 uppercase italic tracking-tighter">Nueva Venta</h3>
-            <p className="text-black/60 font-bold uppercase text-xs tracking-widest">Abrir terminal POS</p>
-          </div>
-          <div className="relative z-10 bg-black/10 p-6 rounded-full group-hover:bg-black/20 transition-all">
-            <ShoppingCart size={40} />
-          </div>
-          <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
-        </button>
-
-        <button 
-          onClick={() => setScreen('register')}
-          className="group relative p-12 bg-transparent border-4 border-neon-blue rounded-[3rem] text-neon-blue transition-all hover:bg-neon-blue/10 hover:shadow-[0_0_30px_rgba(0,243,255,0.3)] active:scale-95 flex justify-between items-center"
-        >
-          <div className="relative z-10">
-            <h3 className="text-3xl font-black mb-1 uppercase italic tracking-tighter">Inventario</h3>
-            <p className="text-neon-blue/60 font-bold uppercase text-xs tracking-widest">Gestión de productos</p>
-          </div>
-          <div className="relative z-10 bg-neon-blue/10 p-6 rounded-full group-hover:bg-neon-blue/20 transition-all">
-            <PackagePlus size={40} />
-          </div>
-        </button>
-      </div>
-    </motion.div>
-  );
-};
-
-
-const RegisterScreen = ({ addProduct, products }: { addProduct: (p: Omit<Product, 'id'>) => void, products: Product[] }) => {
-  const [formData, setFormData] = useState({ name: '', price: '', category: 'Abarrotes', stock: '' });
-  const [showSuccess, setShowSuccess] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    addProduct({
-      name: formData.name,
-      price: parseFloat(formData.price),
-      category: formData.category,
-      stock: parseInt(formData.stock)
-    });
-    setFormData({ name: '', price: '', category: 'Abarrotes', stock: '' });
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 2000);
-  };
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      className="max-w-5xl mx-auto"
-    >
-      <div className="flex items-center justify-between mb-10">
-        <h2 className="text-4xl font-black text-white italic tracking-tighter text-glow-yellow underline decoration-neon-yellow decoration-4 underline-offset-8">Inventario</h2>
-        <div className="flex gap-2">
-          {showSuccess && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center gap-2 text-neon-green bg-neon-green/10 border border-neon-green/30 px-6 py-3 rounded-2xl font-black uppercase text-xs tracking-widest glow-green"
-            >
-              <CheckCircle2 size={18} /> Sistema Actualizado
-            </motion.div>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
-        <div className="lg:col-span-2">
-          <section className="bg-white/5 backdrop-blur-md p-10 rounded-[2.5rem] border border-white/10 glow-yellow/10">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="font-black text-neon-yellow flex items-center gap-2 uppercase tracking-widest text-xs italic">
-                <Plus size={18} /> Alta de Producto
-              </h3>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="text-[10px] font-black text-white/30 uppercase mb-2 block tracking-[0.3em]">Nombre del Producto</label>
-                <input 
-                  required
-                  type="text" 
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full px-6 py-4 bg-black border border-white/10 rounded-2xl focus:border-neon-yellow focus:ring-1 focus:ring-neon-yellow outline-none transition-all placeholder-white/20 text-white font-medium"
-                  placeholder="Ej. Bebida Energética"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="text-[10px] font-black text-white/30 uppercase mb-2 block tracking-[0.3em]">Precio</label>
-                  <div className="relative">
-                    <span className="absolute left-5 top-4 text-neon-yellow font-black">$</span>
-                    <input 
-                      required
-                      type="number" 
-                      step="0.01"
-                      value={formData.price}
-                      onChange={(e) => setFormData({...formData, price: e.target.value})}
-                      className="w-full pl-10 pr-4 py-4 bg-black border border-white/10 rounded-2xl focus:border-neon-yellow outline-none transition-all text-white font-mono"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-black text-white/30 uppercase mb-2 block tracking-[0.3em]">Stock</label>
-                  <input 
-                    required
-                    type="number" 
-                    value={formData.stock}
-                    onChange={(e) => setFormData({...formData, stock: e.target.value})}
-                    className="w-full px-5 py-4 bg-black border border-white/10 rounded-2xl focus:border-neon-yellow outline-none transition-all text-white font-mono text-center"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-white/30 uppercase mb-2 block tracking-[0.3em]">Categoría</label>
-                <select 
-                  value={formData.category}
-                  onChange={(e) => setFormData({...formData, category: e.target.value})}
-                  className="w-full px-6 py-4 bg-black border border-white/10 rounded-2xl focus:border-neon-yellow outline-none transition-all text-white font-bold appearance-none cursor-pointer"
-                >
-                  <option>Abarrotes</option>
-                  <option>Lácteos y Huevos</option>
-                  <option>Bebidas</option>
-                  <option>Limpieza</option>
-                  <option>Enlatados</option>
-                </select>
-              </div>
-              <button 
-                type="submit"
-                className="w-full py-5 bg-neon-yellow text-black rounded-2xl font-black uppercase tracking-widest hover:bg-[#fff74d] transition-all shadow-xl shadow-neon-yellow/20 flex items-center justify-center gap-2 mt-6 active:scale-95"
-              >
-                <Save size={20} /> Guardar Registro
-              </button>
-            </form>
-          </section>
-        </div>
-
-        <div className="lg:col-span-3">
-          <section className="bg-black/40 backdrop-blur-md rounded-[2.5rem] border border-white/10 overflow-hidden h-full flex flex-col">
-            <div className="p-8 border-b border-white/5 bg-white/5 flex justify-between items-center">
-              <h3 className="font-black text-white text-xs uppercase tracking-[0.3em] italic flex items-center gap-3">
-                <Store size={20} className="text-neon-blue" /> Artículos en Base
-              </h3>
-              <span className="text-[10px] font-black text-neon-blue bg-neon-blue/10 px-3 py-1 rounded-full border border-neon-blue/20 uppercase tracking-[0.2em]">
-                {products.length} Registros
-              </span>
-            </div>
-            <div className="flex-1 overflow-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-white/5 sticky top-0 text-white/30 font-black uppercase text-[10px] tracking-[0.3em] border-b border-white/5">
-                  <tr>
-                    <th className="px-8 py-5">Producto</th>
-                    <th className="px-8 py-5 text-center">Categoría</th>
-                    <th className="px-8 py-5 text-center">Stock</th>
-                    <th className="px-8 py-5 text-right">Precio</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {products.map((p) => (
-                    <tr key={p.id} className="hover:bg-white/5 transition-colors group">
-                      <td className="px-8 py-6 font-bold text-white tracking-wide">{p.name}</td>
-                      <td className="px-8 py-6 text-center">
-                        <span className="text-[10px] border border-white/10 text-white/60 px-3 py-1 rounded-full font-bold uppercase tracking-widest">{p.category}</span>
-                      </td>
-                      <td className={`px-8 py-6 text-center font-mono font-bold ${p.stock < 10 ? 'text-neon-yellow' : 'text-white/40'}`}>{p.stock}</td>
-                      <td className="px-8 py-6 text-right font-black text-neon-green font-mono">${p.price.toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
-const SalesScreen = ({ products, onFinishSale }: { products: Product[], onFinishSale: (cartItems: SaleItem[]) => void }) => {
-  const [cart, setCart] = useState<SaleItem[]>([]);
-  const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Todas');
-
-  const categories = ['Todas', ...Array.from(new Set(products.map(p => p.category)))];
-
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || 
-                         p.category.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = selectedCategory === 'Todas' || p.category === selectedCategory;
-    return matchesSearch && matchesCategory && p.stock > 0;
-  });
-
-  const addToCart = (product: Product) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
-        if (existing.quantity >= product.stock) {
-          alert('Stock máximo alcanzado');
-          return prev;
-        }
-        return prev.map(item => 
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
-      return [...prev, { ...product, quantity: 1 }];
-    });
-  };
-
-  const removeFromCart = (id: string) => {
-    setCart(prev => prev.filter(item => item.id !== id));
-  };
-
-  const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 1.02 }}
-      className="max-w-6xl mx-auto h-[calc(100vh-8rem)] flex flex-col gap-8"
-    >
-      <header className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-6">
-          <div className="w-16 h-16 bg-transparent border-4 border-neon-green rounded-3xl flex items-center justify-center font-black text-2xl text-neon-green glow-green italic">$</div>
-          <div>
-            <h2 className="text-4xl font-black text-white tracking-tighter uppercase italic">Terminal Venta</h2>
-            <p className="text-neon-green/60 text-xs font-black uppercase tracking-[0.4em] glow-green">Sistema Activo</p>
-          </div>
-        </div>
-        <div className="bg-black border border-neon-green/30 text-neon-green px-5 py-2.5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3">
-           <div className="w-3 h-3 rounded-full bg-neon-green animate-pulse shadow-[0_0_10px_#39FF14]" /> Operando
-        </div>
-      </header>
-
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-10 min-h-0">
-        <div className="lg:col-span-3 flex flex-col gap-8 min-h-0">
-          <div className="flex flex-col gap-6">
-            <div className="relative">
-              <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-neon-blue" size={24} />
-              <input 
-                type="text" 
-                placeholder="ESCANEAR O BUSCAR PRODUCTO..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-16 pr-8 py-6 bg-black border border-white/10 rounded-[2rem] focus:border-neon-blue outline-none transition-all placeholder-white/20 text-white font-black tracking-widest text-lg"
-              />
-            </div>
-
-            <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
-              {categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all border shrink-0 ${
-                    selectedCategory === cat 
-                      ? 'bg-neon-blue text-black border-neon-blue' 
-                      : 'bg-transparent text-white/40 border-white/10 hover:border-neon-blue hover:text-neon-blue'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto pr-4 grid grid-cols-1 md:grid-cols-2 gap-6 auto-rows-max custom-scrollbar">
-            {filteredProducts.map(p => (
-              <button 
-                key={p.id}
-                onClick={() => addToCart(p)}
-                className="bg-white/5 p-6 rounded-[2rem] border border-white/5 hover:border-white/20 transition-all active:scale-95 group flex flex-col justify-between relative overflow-hidden"
-              >
-                <div className="flex justify-between items-start mb-6 relative z-10">
-                  <span className="text-[9px] bg-white/5 text-white/40 px-3 py-1 rounded-full font-black uppercase tracking-widest border border-white/5">{p.category}</span>
-                  <span className={`text-[10px] font-black px-3 py-1 rounded-full bg-black/40 border ${p.stock < 10 ? 'text-neon-yellow border-neon-yellow/30' : 'text-neon-blue border-neon-blue/20'}`}>
-                    STOCK: {p.stock}
-                  </span>
-                </div>
-                <h4 className="text-xl font-black text-white mb-2 group-hover:text-neon-blue transition-colors leading-tight uppercase relative z-10">{p.name}</h4>
-                <div className="flex justify-between items-end mt-4 relative z-10">
-                   <p className="text-3xl font-black text-white italic tracking-tighter font-mono">${p.price.toFixed(2)}</p>
-                   <div className="bg-transparent border-2 border-white/10 text-white p-3 rounded-2xl group-hover:border-neon-blue group-hover:text-neon-blue transition-all">
-                    <Plus size={24} />
-                  </div>
-                </div>
-                <div className="absolute top-0 right-0 p-8 bg-neon-blue/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="lg:col-span-2 bg-[#0d0d0d] rounded-[3rem] flex flex-col overflow-hidden border border-white/10 glow-green/5">
-          <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/5">
-            <div className="flex items-center gap-4">
-              <ShoppingCart className="text-neon-green" size={24} />
-              <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">Orden</h3>
-            </div>
-            <span className="text-[10px] font-black text-white/40 border border-white/10 px-3 py-1 rounded-full uppercase tracking-widest">{cart.length} ITEMS</span>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-8 space-y-4 custom-scrollbar">
-            {cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-white/20 text-center space-y-6 py-20 uppercase tracking-[0.3em]">
-                <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center border border-white/5">
-                  <ShoppingCart size={40} />
-                </div>
-                <p className="text-[10px] font-black leading-loose">Esperando<br/>Selección</p>
-              </div>
-            ) : (
-              cart.map(item => (
-                <div key={item.id} className="bg-white/5 p-5 rounded-[1.5rem] flex justify-between items-center group relative border border-white/5">
-                  <div className="flex items-center gap-5">
-                    <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center text-neon-green font-black border border-neon-green/30 shadow-[0_0_10px_rgba(57,255,20,0.1)]">
-                      {item.quantity}
-                    </div>
-                    <div>
-                      <h5 className="text-white font-black text-sm uppercase mb-1 tracking-tight">{item.name}</h5>
-                      <p className="text-[10px] text-white/30 font-black tracking-widest uppercase">${item.price.toFixed(2)} UNIT</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-5">
-                    <span className="font-black text-white font-mono text-lg">${(item.quantity * item.price).toFixed(2)}</span>
-                    <button 
-                      onClick={() => removeFromCart(item.id)}
-                      className="text-white/20 hover:text-neon-yellow transition-colors"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div className="p-8 bg-black border-t border-white/10 space-y-6">
-            <div className="flex justify-between items-start">
-              <div className="flex flex-col">
-                <span className="text-white/30 uppercase text-[10px] tracking-[0.4em] font-black mb-1">Total Liquidación</span>
-                <span className="text-5xl font-black text-white tracking-tighter text-glow-green">${total.toFixed(2)}</span>
-              </div>
-              <div className="w-14 h-14 bg-neon-green/10 rounded-2xl flex items-center justify-center text-neon-green shadow-[0_0_20px_rgba(57,255,20,0.2)]">
-                <CheckCircle2 size={32} />
-              </div>
-            </div>
-            <button 
-              disabled={cart.length === 0}
-              onClick={() => {
-                onFinishSale(cart);
-                setCart([]);
-              }}
-              className="w-full py-6 bg-neon-green disabled:bg-white/5 disabled:text-white/10 text-black rounded-[2rem] font-black text-xl uppercase tracking-widest hover:bg-[#43ff1f] transition-all flex items-center justify-center gap-4 active:scale-95 shadow-[0_10px_30px_rgba(57,255,20,0.3)]"
-            >
-              CERRAR TRANSACCIÓN
-            </button>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
-
-const UsersScreen = ({ users, onAddUser, onDeleteUser }: { users: User[], onAddUser: (u: Omit<User, 'id'>) => void, onDeleteUser: (id: string) => void }) => {
-  const [formData, setFormData] = useState({ username: '', email: '', password: '', role: 'Usuario (Cliente)' as User['role'] });
-  const [showSuccess, setShowSuccess] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onAddUser(formData);
-    setFormData({ username: '', email: '', password: '', role: 'Usuario (Cliente)' });
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 2000);
-  };
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      className="max-w-5xl mx-auto"
-    >
-      <div className="flex items-center justify-between mb-10">
-        <h2 className="text-4xl font-black text-white italic tracking-tighter text-glow-blue underline decoration-neon-blue decoration-4 underline-offset-8">Gestión de Usuarios</h2>
-        {showSuccess && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center gap-2 text-neon-green bg-neon-green/10 border border-neon-green/30 px-6 py-3 rounded-2xl font-black uppercase text-xs tracking-widest glow-green"
-          >
-            <CheckCircle2 size={18} /> Usuario Registrado
-          </motion.div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
-        <div className="lg:col-span-2">
-          <section className="bg-white/5 backdrop-blur-md p-10 rounded-[2.5rem] border border-white/10 glow-blue/10">
-            <h3 className="font-black text-neon-blue flex items-center gap-2 uppercase tracking-widest text-xs italic mb-8">
-              <UserPlus size={18} /> Nuevo Usuario
-            </h3>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="text-[10px] font-black text-white/30 uppercase mb-2 block tracking-[0.3em]">Nombre de Usuario</label>
-                <input 
-                  required
-                  type="text" 
-                  value={formData.username}
-                  onChange={(e) => setFormData({...formData, username: e.target.value})}
-                  className="w-full px-6 py-4 bg-black border border-white/10 rounded-2xl focus:border-neon-blue outline-none transition-all placeholder-white/20 text-white"
-                  placeholder="Ej. juan_ventas"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-white/30 uppercase mb-2 block tracking-[0.3em]">Email</label>
-                <input 
-                  required
-                  type="email" 
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="w-full px-6 py-4 bg-black border border-white/10 rounded-2xl focus:border-neon-blue outline-none transition-all placeholder-white/20 text-white"
-                  placeholder="juan@tienda.com"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-white/30 uppercase mb-2 block tracking-[0.3em]">Contraseña</label>
-                <input 
-                  required
-                  type="password" 
-                  value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  className="w-full px-6 py-4 bg-black border border-white/10 rounded-2xl focus:border-neon-blue outline-none transition-all placeholder-white/20 text-white"
-                  placeholder="••••••••"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-white/30 uppercase mb-2 block tracking-[0.3em]">Tipo de Usuario</label>
-                <div className="relative">
-                  <select 
-                    value={formData.role}
-                    onChange={(e) => setFormData({...formData, role: e.target.value as User['role'] })}
-                    className="w-full px-6 py-4 bg-black border border-white/10 rounded-2xl focus:border-neon-blue outline-none transition-all text-white font-bold appearance-none cursor-pointer"
-                  >
-                    <option value="Usuario (Cliente)">Usuario (Cliente)</option>
-                    <option value="Administrador">Administrador</option>
-                  </select>
-                  <ChevronRight className="absolute right-6 top-1/2 -translate-y-1/2 text-neon-blue rotate-90 pointer-events-none" size={18} />
-                </div>
-              </div>
-              <button 
-                type="submit"
-                className="w-full py-5 bg-neon-blue text-black rounded-2xl font-black uppercase tracking-widest hover:bg-[#4deaff] transition-all shadow-xl shadow-neon-blue/20 flex items-center justify-center gap-2 mt-6 active:scale-95"
-              >
-                <Save size={20} /> Crear Usuario
-              </button>
-            </form>
-          </section>
-        </div>
-
-        <div className="lg:col-span-3">
-          <section className="bg-black/40 backdrop-blur-md rounded-[2.5rem] border border-white/10 overflow-hidden h-full flex flex-col">
-            <div className="p-8 border-b border-white/5 bg-white/5 flex justify-between items-center">
-              <h3 className="font-black text-white text-xs uppercase tracking-[0.3em] italic flex items-center gap-3">
-                <Users size={20} className="text-neon-yellow" /> Panel de Control de Usuarios
-              </h3>
-            </div>
-            <div className="flex-1 overflow-auto custom-scrollbar">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-white/5 sticky top-0 text-white/30 font-black uppercase text-[10px] tracking-[0.3em] border-b border-white/5">
-                  <tr>
-                    <th className="px-8 py-5">Usuario</th>
-                    <th className="px-8 py-5">Email</th>
-                    <th className="px-8 py-5 text-center">Rol</th>
-                    <th className="px-8 py-5 text-right w-20">Acción</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {users.map((user) => (
-                    <tr key={user.id} className="hover:bg-white/5 transition-colors group">
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${user.role === 'Administrador' ? 'bg-neon-yellow/20 text-neon-yellow border border-neon-yellow/30' : 'bg-neon-blue/20 text-neon-blue border border-neon-blue/30'}`}>
-                            {user.username[0].toUpperCase()}
-                          </div>
-                          <span className="font-bold text-white tracking-wide">{user.username}</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 text-white/40 font-medium">{user.email}</td>
-                      <td className="px-8 py-6 text-center">
-                        <span className={`text-[9px] border px-3 py-1 rounded-full font-black uppercase tracking-widest ${user.role === 'Administrador' ? 'border-neon-yellow/40 text-neon-yellow' : 'border-white/10 text-white/60'}`}>
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <button 
-                          onClick={() => onDeleteUser(user.id)}
-                          className="p-2 text-white/20 hover:text-neon-yellow transition-colors hover:bg-white/5 rounded-lg"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
-
-const LoginScreen = ({ users, onLogin, logoutMessage }: { users: User[], onLogin: (user: User) => void, logoutMessage?: string }) => {
-  const [formData, setFormData] = useState({ email: '', password: '' });
+const AuthFlow = ({ users, onLogin, onSignup, logoutMessage }: AuthFlowProps) => {
+  const [mode, setMode] = useState<'choice' | 'login' | 'signup'>('choice');
+  const [formData, setFormData] = useState({ username: '', email: '', password: '', role: 'Cliente' as User['role'], phone: '', address: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [showGoogleSim, setShowGoogleSim] = useState(false);
+  const [googleEmailInput, setGoogleEmailInput] = useState('u070228@cetis7.edu.mx');
+  const [googleNameInput, setGoogleNameInput] = useState('Cliente Google');
+  const [isGoogleSignupTab, setIsGoogleSignupTab] = useState(false);
+  const [googleError, setGoogleError] = useState('');
+
+  const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const user = users.find(u => u.email === formData.email && u.password === formData.password);
     if (user) {
-      setSuccess('se a iniciado sesión de manera correcta');
+      if (user.status === 'pending') {
+        setError('Acceso denegado: Su solicitud está pendiente de aprobación por el Administrador Principal.');
+        setSuccess('');
+        setTimeout(() => setError(''), 5000);
+        return;
+      }
+      if (user.status === 'denied') {
+        setError('Acceso denegado: Su solicitud fue rechazada por el Administrador Principal.');
+        setSuccess('');
+        setTimeout(() => setError(''), 5000);
+        return;
+      }
+      setSuccess('Se ha iniciado sesión de manera correcta');
       setError('');
+      setTimeout(() => onLogin(user), 1500);
+    } else {
+      setError('No se puede realizar su validación. Credenciales incorrectas.');
+      setSuccess('');
+      setTimeout(() => setError(''), 4000);
+    }
+  };
+
+  const handleSignupSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const isSpecialRequest = formData.role === 'Administrador' || formData.role === 'Empleado';
+    
+    if (isSpecialRequest) {
+      setSuccess('Solicitud enviada. El administrador principal validará su cuenta.');
+    } else {
+      setSuccess('Cuenta creada de manera exitosa');
+    }
+    setTimeout(() => onSignup(formData), 2000);
+  };
+
+  const handleGoogleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!googleEmailInput.trim() || !googleEmailInput.includes('@')) {
+      setGoogleError('Por favor, ingresa un correo de Google válido.');
+      return;
+    }
+
+    if (isGoogleSignupTab) {
+      if (formData.role !== 'Cliente') {
+        setGoogleError('Registro con Google denegado: El tipo de operador seleccionado requiere aprobación del Administrador Principal.');
+        return;
+      }
+      const existingUser = users.find(u => u.email.toLowerCase() === googleEmailInput.toLowerCase().trim());
+      if (existingUser) {
+        setGoogleError('Esta cuenta ya existe. Por favor, inicia sesión.');
+        return;
+      }
+      setSuccess('Cuenta de Google creada e inicio de sesión exitoso');
+      setGoogleError('');
+      setShowGoogleSim(false);
       setTimeout(() => {
-        onLogin(user);
+        onSignup({
+          username: googleNameInput.trim() || 'Cliente Google',
+          email: googleEmailInput.toLowerCase().trim(),
+          password: 'googleAuthPassword',
+          role: 'Cliente',
+          phone: '55-0000-0000',
+          address: 'Dirección Google Registrada'
+        });
       }, 1500);
     } else {
-      setError('No se puede realizar su validación');
-      setSuccess('');
-      setTimeout(() => setError(''), 3000);
+      const found = users.find(u => u.email.toLowerCase() === googleEmailInput.toLowerCase().trim());
+      if (found) {
+        if (found.role !== 'Cliente') {
+          setGoogleError('El operador seleccionado requiere validación con credenciales manuales.');
+          return;
+        }
+        setSuccess('Ingreso con Google validado con éxito');
+        setGoogleError('');
+        setShowGoogleSim(false);
+        setTimeout(() => onLogin(found), 1500);
+      } else {
+        setGoogleError('No se encontró registro para este email. Regístrate antes.');
+      }
     }
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="max-w-md mx-auto"
-    >
-      <div className="bg-white/5 backdrop-blur-xl p-10 rounded-[2.5rem] border border-white/10 glow-blue/20">
-        <div className="flex flex-col items-center mb-10">
-          <div className="w-20 h-20 bg-transparent border-4 border-neon-blue rounded-[2rem] flex items-center justify-center text-neon-blue mb-6 glow-blue">
-            <ShieldCheck size={40} />
-          </div>
-          <h2 className="text-3xl font-black text-white italic tracking-tighter uppercase">Iniciar Sesión</h2>
-          <p className="text-white/40 text-xs font-bold uppercase tracking-[0.3em] mt-2">Acceso al Sistema Neon</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="text-[10px] font-black text-white/30 uppercase mb-2 block tracking-[0.3em]">Email Corporativo</label>
-            <div className="relative">
-              <input 
-                required
-                type="email" 
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                className="w-full px-6 py-4 bg-black border border-white/10 rounded-2xl focus:border-neon-blue outline-none transition-all text-white font-medium"
-                placeholder="usuario@cetis7.edu.mx"
-              />
+    <div className="w-full max-w-md bg-black/60 border border-white/10 rounded-[3rem] p-8 md:p-12 relative overflow-hidden text-left shadow-2xl">
+      <AnimatePresence mode="wait">
+        {mode === 'choice' ? (
+          <motion.div key="choice" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-8 py-5">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-white/5 border-2 border-neon-blue rounded-3xl flex items-center justify-center text-neon-blue mx-auto mb-6 glow-blue">
+                <Store size={32} />
+              </div>
+              <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase">BIENVENIDO</h3>
+              <p className="text-[10px] text-white/30 uppercase mt-1.5 tracking-[0.3em] font-black italic">Portal de Control de Validación</p>
             </div>
-          </div>
-          <div>
-            <label className="text-[10px] font-black text-white/30 uppercase mb-2 block tracking-[0.3em]">Contraseña</label>
-            <input 
-              required
-              type="password" 
-              value={formData.password}
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
-              className="w-full px-6 py-4 bg-black border border-white/10 rounded-2xl focus:border-neon-blue outline-none transition-all text-white font-medium"
-              placeholder="••••••••"
-            />
-          </div>
 
-          <AnimatePresence>
-            {logoutMessage && !error && !success && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="bg-neon-blue/10 border border-neon-blue/30 p-4 rounded-xl text-neon-blue text-[10px] font-black uppercase text-center tracking-widest glow-blue mb-4"
-              >
-                {logoutMessage}
-              </motion.div>
+            {logoutMessage && (
+              <div className="bg-neon-blue/10 border border-neon-blue/20 p-4 rounded-2xl text-[10px] text-neon-blue font-bold text-center uppercase tracking-widest leading-loose animate-pulse">
+                ℹ️ {logoutMessage}
+              </div>
             )}
-            {error && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="bg-neon-yellow/10 border border-neon-yellow/30 p-4 rounded-xl text-neon-yellow text-[10px] font-black uppercase text-center tracking-widest"
-              >
-                {error}
-              </motion.div>
-            )}
-            {success && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="bg-neon-green/10 border border-neon-green/30 p-4 rounded-xl text-neon-green text-[10px] font-black uppercase text-center tracking-widest glow-green"
-              >
-                {success}
-              </motion.div>
-            )}
-          </AnimatePresence>
 
-          <button 
-            type="submit"
-            disabled={!!success}
-            className="w-full py-5 bg-neon-blue text-black rounded-2xl font-black uppercase tracking-widest hover:bg-[#4deaff] transition-all shadow-xl shadow-neon-blue/20 flex items-center justify-center gap-3 mt-4 active:scale-95 disabled:opacity-50"
-          >
-            <LogIn size={20} /> Validar Acceso
-          </button>
-        </form>
-      </div>
-    </motion.div>
+            <div className="space-y-4">
+              <button onClick={() => setMode('login')} className="w-full py-4.5 bg-neon-blue text-black font-black uppercase text-xs tracking-widest rounded-2xl hover:bg-[#4deaff] active:scale-95 transition-all text-center">
+                Iniciar Sesión
+              </button>
+              <button onClick={() => setMode('signup')} className="w-full py-4.5 bg-transparent border border-white/10 text-white hover:border-white/30 font-black uppercase text-xs tracking-widest rounded-2xl active:scale-95 transition-all text-center">
+                Registrar Cuenta
+              </button>
+            </div>
+          </motion.div>
+        ) : mode === 'login' ? (
+          <motion.div key="login" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -25 }} className="space-y-6">
+            <button onClick={() => setMode('choice')} className="mb-4 flex items-center gap-2 text-white/30 hover:text-white transition-colors text-[9px] font-black uppercase tracking-widest">
+              ← REGRESAR
+            </button>
+            <div className="text-center">
+              <h3 className="text-2xl font-black text-white uppercase italic">Ingresar Credenciales</h3>
+            </div>
+            
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <div>
+                <label className="text-[8px] font-black text-white/40 block mb-1 uppercase tracking-widest">Email Comercial *</label>
+                <input required type="email" placeholder="admin@cetis7.edu.mx" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3.5 bg-black border border-white/10 rounded-xl text-white font-bold placeholder-white/10 text-xs focus:border-neon-blue outline-none" />
+              </div>
+              <div>
+                <label className="text-[8px] font-black text-white/40 block mb-1 uppercase tracking-widest">Contraseña *</label>
+                <input required type="password" placeholder="admin123" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full p-3.5 bg-black border border-white/10 rounded-xl text-white font-bold placeholder-white/10 text-xs focus:border-neon-blue outline-none" />
+              </div>
+
+              {error && <div className="text-red-400 text-[10px] font-black uppercase text-center py-2 bg-red-950/10 border border-red-900/30 rounded-xl">{error}</div>}
+              {success && <div className="text-neon-green text-[10px] font-black uppercase text-center py-2 bg-neon-green/10 border border-neon-green/30 rounded-xl animate-pulse">{success}</div>}
+
+              <button type="submit" className="w-full py-4.5 bg-neon-blue text-black font-black uppercase text-xs tracking-widest rounded-2xl hover:bg-[#4deaff]">
+                Acceder al Sistema
+              </button>
+
+              <button type="button" onClick={() => { setIsGoogleSignupTab(false); setShowGoogleSim(true); }} className="w-full py-4 bg-white/5 border border-white/10 hover:border-white/20 text-white rounded-2xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-2">
+                <Chrome size={14} className="text-[#4285F4]" /> Continuar con Google
+              </button>
+            </form>
+          </motion.div>
+        ) : (
+          <motion.div key="signup" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 25 }} className="space-y-5">
+            <button onClick={() => setMode('choice')} className="flex items-center gap-2 text-white/30 hover:text-white transition-colors text-[9px] font-black uppercase tracking-widest mb-4">
+              ← REGRESAR
+            </button>
+            <div className="text-center">
+              <h3 className="text-2xl font-black text-white uppercase italic">Registrar Operador</h3>
+            </div>
+
+            <form onSubmit={handleSignupSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[8px] font-black text-white/30 uppercase block mb-1">Usuario *</label>
+                  <input required type="text" placeholder="juan_perez" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="w-full p-2 bg-black border border-white/10 text-white rounded text-xs" />
+                </div>
+                <div>
+                  <label className="text-[8px] font-black text-white/30 uppercase block mb-1">Email *</label>
+                  <input required type="email" placeholder="juan@correo.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-2 bg-black border border-white/10 text-white rounded text-xs" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[8px] font-black text-white/30 uppercase block mb-1">Contraseña de Registro *</label>
+                <input required type="password" placeholder="••••••••" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full p-3 bg-black border border-white/10 text-white rounded text-xs" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[8px] font-black text-white/30 block mb-1">Teléfono</label>
+                  <input type="tel" placeholder="55-1234" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-2 bg-black border border-white/10 text-white rounded text-xs" />
+                </div>
+                <div>
+                  <label className="text-[8px] font-black text-white/30 block mb-1">Dirección</label>
+                  <input type="text" placeholder="Av. Hidalgo" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full p-2 bg-black border border-white/10 text-white rounded text-xs" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[8px] font-black text-white/40 block mb-2 text-center uppercase tracking-widest font-black">Tipo de Cuenta</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['Administrador', 'Cliente', 'Empleado'] as User['role'][]).map(role => (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => setFormData({...formData, role})}
+                      className={`p-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all ${
+                        formData.role === role
+                          ? 'bg-neon-yellow text-black border-neon-yellow'
+                          : 'bg-transparent text-white/30 border-white/5'
+                      }`}
+                    >
+                      {role}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {error && <div className="text-red-400 text-[10px] uppercase text-center py-2 bg-red-950/10 border border-red-900/30 rounded-xl">{error}</div>}
+              {success && <div className="text-neon-green text-[10px] uppercase text-center py-2 bg-neon-green/10 border border-neon-green/30 rounded-xl animate-bounce">{success}</div>}
+
+              <button type="submit" className="w-full py-4.5 bg-neon-yellow text-black font-black uppercase text-xs tracking-widest rounded-2xl hover:bg-[#fff64c]">
+                Registrar Solicitud
+              </button>
+
+              <button type="button" onClick={() => { setFormData({...formData, role: 'Cliente'}); setIsGoogleSignupTab(true); setShowGoogleSim(true); }} className="w-full py-4 bg-white/5 border border-white/10 hover:border-white/20 text-white rounded-2xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-2">
+                <Chrome size={14} className="text-[#4285F4]" /> Registrarse con Google (Cliente)
+              </button>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Embedded Google Sign-in dialog modal */}
+      {showGoogleSim && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-50 backdrop-blur-sm">
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-[#1c1c1e] p-8 rounded-3xl border border-white/10 max-w-sm w-full space-y-6 text-left relative">
+            <button onClick={() => setShowGoogleSim(false)} className="absolute top-5 right-5 text-white/40 hover:text-white">
+              <X size={20} />
+            </button>
+            <div className="text-center">
+              <Chrome size={40} className="text-[#4285F4] mx-auto mb-2" />
+              <h4 className="text-white font-black text-lg uppercase tracking-tight">Iniciar Sesión con Google</h4>
+              <p className="text-[9px] text-white/40 uppercase tracking-widest">Simulación Segura de Auth</p>
+            </div>
+
+            <form onSubmit={handleGoogleSubmit} className="space-y-4">
+              <div>
+                <label className="text-[8px] font-black block mb-1 text-white/50 uppercase">Correo de Google (GMail)</label>
+                <input required type="email" value={googleEmailInput} onChange={e => setGoogleEmailInput(e.target.value)} className="w-full p-2.5 bg-black border border-white/10 rounded-xl text-white font-mono text-xs" />
+              </div>
+              {isGoogleSignupTab && (
+                <div>
+                  <label className="text-[8px] font-black block mb-1 text-white/50 uppercase">Nombre Completo</label>
+                  <input required type="text" value={googleNameInput} onChange={e => setGoogleNameInput(e.target.value)} className="w-full p-2.5 bg-black border border-white/10 rounded-xl text-white font-bold text-xs" />
+                </div>
+              )}
+
+              {googleError && <p className="text-red-400 text-[10px] text-center uppercase tracking-widest font-black leading-relaxed">{googleError}</p>}
+              
+              <button type="submit" className="w-full py-3 bg-[#4285F4] hover:bg-[#5b95f5] text-white text-xs font-black uppercase rounded-xl tracking-widest">
+                {isGoogleSignupTab ? 'CREAR CUENTA GOOGLE' : 'AUTENTICAR ENLACE'}
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </div>
   );
 };
 
 
-// --- Main App ---
-
+// --- MAIN CONTEXT COINCIDENCE ---
 export default function App() {
-  const [screen, setScreen] = useState<Screen>('welcome');
-  const [users, setUsers] = useState<User[]>([
-    { id: '1', username: 'Admin #04', email: 'admin@cetis7.edu.mx', password: 'admin123', role: 'Administrador' },
-    { id: '2', username: 'Ventas_Junior', email: 'ventas@cetis7.edu.mx', password: 'ventas123', role: 'Usuario (Cliente)' },
-  ]);
-  const [currentUser, setCurrentUser] = useState<User | null>(users[0]);
+  const [screen, setScreen] = useState<Screen>('landing');
+  const [theme, setTheme] = useState<AppTheme>('cyber'); // default to black/cyber style
+
+  // 1. Categorias
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const saved = localStorage.getItem('groceries_categories');
+    return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
+  });
+
+  // 2. Productos
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('groceries_products');
+    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+  });
+
+  // 3. Usuarios/Socios
+  const [users, setUsers] = useState<User[]>(() => {
+    const saved = localStorage.getItem('taqueria_users');
+    return saved ? JSON.parse(saved) : INITIAL_USERS;
+  });
+
+  // 4. Pedidos
+  const [pedidos, setPedidos] = useState<Pedido[]>(() => {
+    const saved = localStorage.getItem('groceries_pedidos');
+    return saved ? JSON.parse(saved) : INITIAL_PEDIDOS;
+  });
+
+  // 5. Detalle Pedidos
+  const [detallePedidos, setDetallePedidos] = useState<DetallePedido[]>(() => {
+    const saved = localStorage.getItem('groceries_detalle');
+    return saved ? JSON.parse(saved) : INITIAL_DETALLES;
+  });
+
+  // 6. Almacén / Inventario
+  const [inventario, setInventario] = useState<InventarioItem[]>(() => {
+    const saved = localStorage.getItem('groceries_inventario');
+    return saved ? JSON.parse(saved) : INITIAL_INVENTARIO;
+  });
+
+  // 7. Ventas
+  const [ventas, setVentas] = useState<VentaItem[]>(() => {
+    const saved = localStorage.getItem('groceries_ventas');
+    return saved ? JSON.parse(saved) : INITIAL_VENTAS;
+  });
+
+  // Authentication Context state
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [logoutMsg, setLogoutMsg] = useState('');
-  
+
+  const isAdmin = currentUser?.role === 'Administrador';
+  const isMainAdmin = currentUser?.id === '1';
+
+  // Save states modifications in localStorage
+  useEffect(() => {
+    localStorage.setItem('groceries_categories', JSON.stringify(categories));
+    localStorage.setItem('groceries_products', JSON.stringify(products));
+    localStorage.setItem('taqueria_users', JSON.stringify(users));
+    localStorage.setItem('groceries_pedidos', JSON.stringify(pedidos));
+    localStorage.setItem('groceries_detalle', JSON.stringify(detallePedidos));
+    localStorage.setItem('groceries_inventario', JSON.stringify(inventario));
+    localStorage.setItem('groceries_ventas', JSON.stringify(ventas));
+  }, [categories, products, users, pedidos, detallePedidos, inventario, ventas]);
+
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     setLogoutMsg('');
     setScreen('welcome');
   };
 
+  const handleRegister = (newUser: any) => {
+    const isRestrictedRole = newUser.role === 'Administrador' || newUser.role === 'Empleado';
+    const userWithId: User = { 
+      ...newUser, 
+      id: Math.random().toString(36).substr(2, 9),
+      id_usuario: Math.random().toString(36).substr(2, 9),
+      nombre: newUser.username,
+      correo: newUser.email,
+      telefono: newUser.phone || 'N/A',
+      direccion: newUser.address || 'N/A',
+      tipo_usuario: newUser.role.toLowerCase() as any,
+      status: isRestrictedRole ? 'pending' as const : 'approved' as const
+    };
+    
+    setUsers(prev => [...prev, userWithId]);
+    if (!isRestrictedRole) {
+      setCurrentUser(userWithId);
+      setScreen('welcome');
+    } else {
+      setLogoutMsg('Solicitud de Operador enviada. El Administrador Principal autorizará su cuenta.');
+      setScreen('landing');
+    }
+  };
+
   const handleLogout = () => {
     setCurrentUser(null);
-    setLogoutMsg('se ha cerrado la  sesión correctamente');
-    setScreen('login');
+    setLogoutMsg('Sesión cerrada correctamente. Vuelve pronto.');
+    setScreen('landing');
     setTimeout(() => setLogoutMsg(''), 4000);
   };
 
-  const [products, setProducts] = useState<Product[]>([
-    { id: '1', name: 'Leche Entera 1L', price: 24.50, category: 'Lácteos y Huevos', stock: 50 },
-    { id: '2', name: 'Huevo 12 pzas', price: 42.00, category: 'Abarrotes', stock: 20 },
-    { id: '3', name: 'Refresco Cola 600ml', price: 18.00, category: 'Bebidas', stock: 15 },
-    { id: '4', name: 'Pan de Caja', price: 45.50, category: 'Abarrotes', stock: 8 },
-    { id: '5', name: 'Jabón de Trastes', price: 32.00, category: 'Limpieza', stock: 12 },
-  ]);
-  const [salesCount, setSalesCount] = useState(0);
-
-  const addProduct = (newProduct: Omit<Product, 'id'>) => {
-    setProducts(prev => [
-      { ...newProduct, id: Math.random().toString(36).substr(2, 9) },
-      ...prev
-    ]);
+  // Profile update
+  const handleUpdateProfile = (updatedData: Partial<User>) => {
+    if (!currentUser) return;
+    const updatedUser = { 
+      ...currentUser, 
+      ...updatedData,
+      username: updatedData.nombre || currentUser.username,
+      nombre: updatedData.nombre || currentUser.nombre || '',
+      phone: updatedData.telefono || currentUser.phone,
+      telefono: updatedData.telefono || currentUser.telefono || '',
+      address: updatedData.direccion || currentUser.address,
+      direccion: updatedData.direccion || currentUser.direccion || ''
+    };
+    setCurrentUser(updatedUser);
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updatedUser : u));
   };
 
-  const handleAddUser = (newUser: Omit<User, 'id'>) => {
-    setUsers(prev => [
-      ...prev,
-      { ...newUser, id: Math.random().toString(36).substr(2, 9) }
-    ]);
+  // Client order checkout triggers
+  const handlePlaceOrder = (
+    cartItems: { product: Product; quantity: number }[],
+    paymentMethod: 'efectivo' | 'tarjeta' | 'transferencia',
+    couponCode?: string
+  ) => {
+    if (!currentUser) return;
+    const orderId = `PED-${Math.floor(100 + Math.random() * 900)}`;
+    const subtotal = cartItems.reduce((acc, item) => acc + (item.product.precio * item.quantity), 0);
+    
+    let discount = 0;
+    if (couponCode === 'BARATO15') discount = subtotal * 0.15;
+    else if (couponCode === 'CETIS7') discount = Math.min(15, subtotal);
+    
+    const total = Math.max(0, subtotal - discount);
+
+    // 1. Appends Pedido
+    const newOrder: Pedido = {
+      id_pedido: orderId,
+      id_usuario: currentUser.id,
+      nombre_usuario: currentUser.username,
+      fecha_pedido: new Date().toISOString().split('T')[0],
+      estado_pedido: 'pendiente',
+      metodo_pago: paymentMethod,
+      total: total
+    };
+
+    // 2. Appends Details
+    const newDetails: DetallePedido[] = cartItems.map((item, idx) => ({
+      id_detalle: `DET-${Date.now()}-${idx}`,
+      id_pedido: orderId,
+      id_producto: item.product.id_producto,
+      nombre_producto: item.product.nombre_producto,
+      cantidad: item.quantity,
+      precio_unitario: item.product.precio,
+      subtotal: item.quantity * item.product.precio
+    }));
+
+    // 3. Appends Venta record
+    const newVenta: VentaItem = {
+      id_venta: `VTA-${Math.floor(100 + Math.random() * 900)}`,
+      id_pedido: orderId,
+      fecha: new Date().toISOString().split('T')[0],
+      total: total
+    };
+
+    // 4. Update Product & Inventario Stocks elements
+    setProducts(prevProducts => prevProducts.map(p => {
+      const cartMatch = cartItems.find(c => c.product.id_producto === p.id_producto);
+      if (cartMatch) {
+         const newStock = Math.max(0, p.stock - cartMatch.quantity);
+         return { ...p, stock: newStock, disponible: newStock > 0 };
+      }
+      return p;
+    }));
+
+    setInventario(prevInv => prevInv.map(inv => {
+      const cartMatch = cartItems.find(c => c.product.id_producto === inv.id_producto);
+      if (cartMatch) {
+         const newStock = Math.max(0, inv.cantidad_actual - cartMatch.quantity);
+         return { 
+           ...inv, 
+           cantidad_actual: newStock, 
+           fecha_actualizacion: new Date().toISOString().split('T')[0] 
+         };
+      }
+      return inv;
+    }));
+
+    setPedidos(prev => [newOrder, ...prev]);
+    setDetallePedidos(prev => [...prev, ...newDetails]);
+    setVentas(prev => [newVenta, ...prev]);
+    
+    alert(`🛒 ¡Pedido ${orderId} registrado con éxito por $${total.toFixed(2)} usando pago: ${paymentMethod}!`);
   };
 
-  const handleDeleteUser = (id: string) => {
-    if (users.length <= 1) {
-      alert("No puedes eliminar al último administrador");
-      return;
-    }
-    setUsers(prev => prev.filter(u => u.id !== id));
+  // Admin stocks updates
+  const handleUpdateProductStock = (prodId: string, qty: number) => {
+    setProducts(prev => prev.map(p => {
+      if (p.id_producto === prodId) {
+        const newStock = Math.max(0, p.stock + qty);
+        return { ...p, stock: newStock, disponible: newStock > 0 };
+      }
+      return p;
+    }));
+
+    setInventario(prev => prev.map(inv => {
+      if (inv.id_producto === prodId) {
+        const newStock = Math.max(0, inv.cantidad_actual + qty);
+        return { 
+          ...inv, 
+          cantidad_actual: newStock, 
+          fecha_actualizacion: new Date().toISOString().split('T')[0] 
+        };
+      }
+      return inv;
+    }));
   };
 
-  const handleFinishSale = (cartItems: SaleItem[]) => {
-    setSalesCount(prev => prev + 1);
-    setProducts(prevProducts => {
-      return prevProducts.map(product => {
-        const cartItem = cartItems.find(item => item.id === product.id);
-        if (cartItem) {
-          return { ...product, stock: Math.max(0, product.stock - cartItem.quantity) };
-        }
-        return product;
+  // Orders Despachar controller update states
+  const handleUpdateOrderStatus = (orderId: string, status: Pedido['estado_pedido']) => {
+    setPedidos(prev => prev.map(o => o.id_pedido === orderId ? { ...o, estado_pedido: status } : o));
+    
+    // If order was cancelled manually, reset stock levels!
+    if (status === 'cancelado') {
+      const activeDetails = detallePedidos.filter(d => d.id_pedido === orderId);
+      activeDetails.forEach(det => {
+        handleUpdateProductStock(det.id_producto, det.cantidad);
       });
-    });
-    alert('¡Venta realizada con éxito!');
-    setScreen('welcome');
+      alert(`⚠️ El pedido ${orderId} fue CANCELADO. Las existencias correspondientes regresaron al inventario.`);
+    } else {
+      alert(`🔔 Estado de Pedido ${orderId} actualizado a: ${status.toUpperCase()}`);
+    }
   };
 
-  const stats = {
-    products: products.length,
-    sales: salesCount,
-    stock: products.reduce((acc, p) => acc + p.stock, 0)
+  // Approvals & Personal
+  const handleUpdateUserStatus = (userId: string, status: User['status']) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, status } : u));
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    if (userId === '1') return; // protect master admin login
+    setUsers(prev => prev.filter(u => u.id !== userId));
+  };
+
+  // raw CRUD DB add/delete delegates
+  const handleAddRelationRow = (tableName: string, data: any) => {
+    if (tableName === 'categorias') {
+      setCategories(prev => [...prev, data]);
+    } else if (tableName === 'productos') {
+      const fullProd: Product = {
+        ...data,
+        id: data.id_producto,
+        name: data.nombre_producto,
+        price: data.precio,
+        category: categories.find(c => c.id_categoria === data.id_categoria)?.nombre_categoria || 'Varios'
+      };
+      setProducts(prev => [fullProd, ...prev]);
+
+      // auto inventory row link
+      const newInvRow: InventarioItem = {
+        id_inventario: `INV-${Math.floor(100 + Math.random() * 900)}`,
+        id_producto: data.id_producto,
+        nombre_producto: data.nombre_producto,
+        cantidad_actual: data.stock,
+        stock_minimo: 10,
+        proveedor: 'Distribuidora Central',
+        fecha_actualizacion: new Date().toISOString().split('T')[0]
+      };
+      setInventario(prev => [...prev, newInvRow]);
+    } else if (tableName === 'usuarios') {
+      const parsedUser: User = {
+        id: Math.random().toString(36).substr(2, 9),
+        id_usuario: Math.random().toString(36).substr(2, 9),
+        username: data.username,
+        nombre: data.username,
+        email: data.email,
+        correo: data.email,
+        password: data.password || 'password123',
+        role: data.role || 'Cliente',
+        tipo_usuario: (data.role || 'Cliente').toLowerCase() as any,
+        phone: data.phone || 'N/A',
+        telefono: data.phone || 'N/A',
+        address: data.address || 'N/A',
+        direccion: data.address || 'N/A',
+        status: 'approved'
+      };
+      setUsers(prev => [...prev, parsedUser]);
+    } else if (tableName === 'pedidos') {
+      setPedidos(prev => [data, ...prev]);
+    } else if (tableName === 'detalle') {
+      const parsedDet: DetallePedido = {
+        id_detalle: `D-${Math.floor(100 + Math.random() * 900)}`,
+        ...data
+      };
+      setDetallePedidos(prev => [...prev, parsedDet]);
+    } else if (tableName === 'inventarios') {
+      const parsedInv: InventarioItem = {
+        id_inventario: `INV-${Math.floor(100 + Math.random() * 900)}`,
+        ...data
+      };
+      setInventario(prev => [...prev, parsedInv]);
+    } else if (tableName === 'ventas') {
+      const parsedVta: VentaItem = {
+        id_venta: `VTA-${Math.floor(100 + Math.random() * 900)}`,
+        ...data
+      };
+      setVentas(prev => [parsedVta, ...prev]);
+    }
+  };
+
+  const handleDeleteRelationRow = (tableName: string, entityId: string) => {
+    if (tableName === 'categorias') {
+      setCategories(prev => prev.filter(c => c.id_categoria !== entityId));
+    } else if (tableName === 'productos') {
+      setProducts(prev => prev.filter(p => p.id_producto !== entityId));
+      setInventario(prev => prev.filter(inv => inv.id_producto !== entityId));
+    } else if (tableName === 'usuarios') {
+      setUsers(prev => prev.filter(u => u.id !== entityId));
+    } else if (tableName === 'pedidos') {
+      setPedidos(prev => prev.filter(o => o.id_pedido !== entityId));
+      setDetallePedidos(prev => prev.filter(d => d.id_pedido !== entityId));
+    } else if (tableName === 'detalle') {
+      setDetallePedidos(prev => prev.filter(d => d.id_detalle !== entityId));
+    } else if (tableName === 'inventarios') {
+      setInventario(prev => prev.filter(inv => inv.id_inventario !== entityId));
+    } else if (tableName === 'ventas') {
+      setVentas(prev => prev.filter(v => v.id_venta !== entityId));
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] font-sans text-white flex selection:bg-neon-blue selection:text-black">
-      <Sidebar currentScreen={screen} setScreen={setScreen} currentUser={currentUser} onLogout={handleLogout} />
+    <div className={`min-h-screen font-sans flex selection:bg-neon-blue selection:text-black transition-colors duration-500 ${
+      theme === 'market' ? 'bg-[#faf8f4] text-neutral-800' : 'bg-[#050505] text-white'
+    }`}>
       
-      <main className="flex-1 ml-20 md:ml-64 p-6 md:p-10 lg:p-12 overflow-y-auto overflow-x-hidden">
+      {/* 1. Sidebar Navigation */}
+      {currentUser && (
+        <Sidebar 
+          currentScreen={screen} 
+          setScreen={setScreen} 
+          currentUser={currentUser} 
+          onLogout={handleLogout} 
+        />
+      )}
+
+      {/* 2. Main content container panel */}
+      <main className={`flex-1 ${currentUser ? 'ml-20 md:ml-64' : ''} p-6 md:p-10 lg:p-12 overflow-y-auto overflow-x-hidden relative`}>
+        
+        {/* Floating Theme controller and diagnostic credit */}
+        <div className="absolute top-6 right-6 flex items-center gap-3 z-40 bg-zinc-900/10 backdrop-blur p-1.5 rounded-2xl border border-white/5">
+          <button 
+            type="button"
+            onClick={() => setTheme(theme === 'cyber' ? 'market' : 'cyber')}
+            className="p-2 text-white/50 hover:text-white rounded-xl hover:bg-white/5 flex items-center gap-1.5 transition-all text-[9.5px] font-black uppercase tracking-wider"
+            title="Cambiar Diseño Visual"
+          >
+            {theme === 'cyber' ? <Sun size={15} className="text-neon-yellow" /> : <Moon size={15} className="text-neutral-600" />}
+            <span className="hidden sm:inline">Theme: {theme === 'cyber' ? 'Cyber Neon' : 'Warm Market'}</span>
+          </button>
+        </div>
+
         <AnimatePresence mode="wait">
-          {screen === 'welcome' && (
-            <div key="welcome">
-              <WelcomeScreen stats={stats} setScreen={setScreen} />
+          {!currentUser ? (
+            /* PUBLIC MODE: AuthFlow on the right, Public Catalogue on the left! */
+            <div key="auth" className="max-w-7xl mx-auto w-full pt-10">
+              <div className="flex flex-col lg:flex-row gap-10 items-stretch">
+                
+                {/* Public Catalog Sidebar Panel */}
+                <div className="lg:w-1/3 flex">
+                  <div className="bg-black/95 border border-white/10 p-8 rounded-[3.5rem] flex flex-col w-full glow-blue/5">
+                    <div className="flex items-center gap-4 mb-6 pb-4 border-b border-white/5">
+                      <div className="p-3 bg-neon-blue/10 rounded-2xl text-neon-blue">
+                        <Store size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-black text-white italic tracking-tighter uppercase">Abierto</h3>
+                        <p className="text-[9px] font-black text-white/40 tracking-[0.3em] uppercase">Catálogo Público</p>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto pr-1 space-y-4 max-h-[60vh] custom-scrollbar">
+                      {products.map(p => (
+                        <div key={p.id_producto} className="bg-white/5 p-4 rounded-2xl border border-white/5 group hover:border-white/15 transition-all flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl leading-none">{p.foto}</span>
+                            <div>
+                              <p className="text-[8px] text-white/30 uppercase tracking-widest leading-none">{p.marca}</p>
+                              <h4 className="text-white font-bold text-xs uppercase tracking-tight mt-0.5">{p.nombre_producto}</h4>
+                              <p className="text-[9px] text-white/40 leading-none mt-1">{categories.find(c => c.id_categoria === p.id_categoria)?.nombre_categoria}</p>
+                            </div>
+                          </div>
+                          <p className="text-neon-green font-mono font-black text-xs shrink-0">${p.precio.toFixed(2)}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-6 pt-4 border-t border-white/5 text-center">
+                      <p className="text-[8.5px] font-black text-neon-yellow/60 uppercase tracking-[0.4em] italic animate-pulse">Registra tu usuario para comprar online</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Authentication core container panel */}
+                <div className="lg:w-2/3 flex items-center justify-center min-h-[500px]">
+                  <AuthFlow 
+                    users={users} 
+                    onLogin={handleLogin} 
+                    onSignup={handleRegister} 
+                    logoutMessage={logoutMsg} 
+                  />
+                </div>
+              </div>
             </div>
-          )}
-          {screen === 'register' && (
-            <div key="register">
-              <RegisterScreen products={products} addProduct={addProduct} />
-            </div>
-          )}
-          {screen === 'sales' && (
-            <div key="sales">
-              <SalesScreen products={products} onFinishSale={handleFinishSale} />
-            </div>
-          )}
-          {screen === 'users' && (
-            <div key="users">
-              <UsersScreen users={users} onAddUser={handleAddUser} onDeleteUser={handleDeleteUser} />
-            </div>
-          )}
-          {screen === 'login' && (
-            <div key="login">
-              <LoginScreen users={users} onLogin={handleLogin} logoutMessage={logoutMsg} />
+          ) : (
+            /* AUTHORIZED FLOW USER ACTIVE HOOK */
+            <div className="pt-8">
+              {screen === 'welcome' && (
+                <div key="welcome-view">
+                  {currentUser.role === 'Cliente' ? (
+                    <ClientDashboard 
+                      products={products}
+                      categories={categories}
+                      pedidos={pedidos}
+                      detallePedidos={detallePedidos}
+                      currentUser={currentUser}
+                      onUpdateProfile={handleUpdateProfile}
+                      onPlaceOrder={handlePlaceOrder}
+                    />
+                  ) : (
+                    /* Employee & Admin Statistics Summary panel view */
+                    <AdminDashboard 
+                      categories={categories}
+                      products={products}
+                      users={users}
+                      pedidos={pedidos}
+                      detallePedidos={detallePedidos}
+                      inventario={inventario}
+                      ventas={ventas}
+                      currentUser={currentUser}
+                      onAddCategory={(n, d) => handleAddRelationRow('categorias', { id_categoria: `C${categories.length+1}`, nombre_categoria: n, descripcion: d })}
+                      onAddProduct={(p) => handleAddRelationRow('productos', { ...p, id_producto: `P${products.length+1}` })}
+                      onDeleteProduct={(id) => handleDeleteRelationRow('productos', id)}
+                      onUpdateProductStock={handleUpdateProductStock}
+                      onUpdateOrderStatus={handleUpdateOrderStatus}
+                      onUpdateUserStatus={handleUpdateUserStatus}
+                      onDeleteUser={handleDeleteUser}
+                      onAddRelationRow={handleAddRelationRow}
+                      onDeleteRelationRow={handleDeleteRelationRow}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Inventario/Catalog CRUD quick view redirect */}
+              {screen === 'register' && (
+                <div key="register-view">
+                  <AdminDashboard 
+                    categories={categories}
+                    products={products}
+                    users={users}
+                    pedidos={pedidos}
+                    detallePedidos={detallePedidos}
+                    inventario={inventario}
+                    ventas={ventas}
+                    currentUser={currentUser}
+                    onAddCategory={(n, d) => handleAddRelationRow('categorias', { id_categoria: `C${categories.length+1}`, nombre_categoria: n, descripcion: d })}
+                    onAddProduct={(p) => handleAddRelationRow('productos', { ...p, id_producto: `P${products.length+1}` })}
+                    onDeleteProduct={(id) => handleDeleteRelationRow('productos', id)}
+                    onUpdateProductStock={handleUpdateProductStock}
+                    onUpdateOrderStatus={handleUpdateOrderStatus}
+                    onUpdateUserStatus={handleUpdateUserStatus}
+                    onDeleteUser={handleDeleteUser}
+                    onAddRelationRow={handleAddRelationRow}
+                    onDeleteRelationRow={handleDeleteRelationRow}
+                  />
+                </div>
+              )}
+
+              {/* Sales POS Quick terminal fallback */}
+              {screen === 'sales' && (
+                <div key="sales-view">
+                  {/* Reuse beautiful Client catalog & shopping cart POS for employee/admin to register over-the-counter purchases! */}
+                  <div className="bg-black/40 border border-white/5 p-4 rounded-2xl text-center mb-6 text-neon-green font-black text-xs uppercase block animate-pulse">
+                     📠 TERMINAL VENTA FISICA POS (CLIENTE SIMULADO EN MOSTRADOR)
+                  </div>
+                  <ClientDashboard 
+                    products={products}
+                    categories={categories}
+                    pedidos={pedidos}
+                    detallePedidos={detallePedidos}
+                    currentUser={currentUser}
+                    onUpdateProfile={handleUpdateProfile}
+                    onPlaceOrder={handlePlaceOrder}
+                  />
+                </div>
+              )}
+
+              {/* ALL SEVEN TABLE VIEWERS (THE ENTIRE CONSOLE BASE AS REQUESTED) */}
+              {screen === 'db' && (
+                <div key="database-raw-view">
+                  <div className="bg-white/5 border border-white/10 p-5 rounded-[2rem] text-center mb-5 uppercase text-neon-blue font-black tracking-widest text-[10px]">
+                     📂 ADMINISTRACIÓN CENTRAL DE BASES DE DATOS RELACIONALES
+                  </div>
+                  <AdminDashboard 
+                    categories={categories}
+                    products={products}
+                    users={users}
+                    pedidos={pedidos}
+                    detallePedidos={detallePedidos}
+                    inventario={inventario}
+                    ventas={ventas}
+                    currentUser={currentUser}
+                    onAddCategory={(n, d) => handleAddRelationRow('categorias', { id_categoria: `C${categories.length+1}`, nombre_categoria: n, descripcion: d })}
+                    onAddProduct={(p) => handleAddRelationRow('productos', { ...p, id_producto: `P${products.length+1}` })}
+                    onDeleteProduct={(id) => handleDeleteRelationRow('productos', id)}
+                    onUpdateProductStock={handleUpdateProductStock}
+                    onUpdateOrderStatus={handleUpdateOrderStatus}
+                    onUpdateUserStatus={handleUpdateUserStatus}
+                    onDeleteUser={handleDeleteUser}
+                    onAddRelationRow={handleAddRelationRow}
+                    onDeleteRelationRow={handleDeleteRelationRow}
+                  />
+                </div>
+              )}
+
+              {/* Personal management & custom operator approves list */}
+              {screen === 'users' && (
+                <div key="users-approvals">
+                  {isMainAdmin || isAdmin ? (
+                    <div className="bg-black/40 border border-white/10 p-8 rounded-[2.5rem] space-y-8">
+                      <div className="flex items-center gap-4 border-b border-white/5 pb-4">
+                        <div className="p-3.5 bg-neon-yellow/10 rounded-2xl text-neon-yellow shadow-lg shrink-0">
+                          <ShieldCheck size={28} />
+                        </div>
+                        <div>
+                          <h3 className="font-black text-white text-xl uppercase tracking-tight">SOLICITUDES DE ACCESO Y OPERADORES</h3>
+                          <p className="text-neon-yellow text-[9px] font-black uppercase tracking-widest italic mt-0.5">Control de Auditoría y Verificación</p>
+                        </div>
+                      </div>
+
+                      {/* Pending operators section */}
+                      <div className="space-y-4">
+                        <h4 className="text-white/60 text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                          📌 Solicitudes de Alta del Personal ({users.filter(u=>u.status==='pending').length})
+                        </h4>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {users.filter(u=>u.status === 'pending').map(pUser => (
+                            <div key={pUser.id} className="bg-black border border-white/10 p-5 rounded-2xl flex items-center justify-between gap-4">
+                              <div>
+                                <h5 className="font-bold text-white text-sm uppercase">{pUser.username}</h5>
+                                <p className="text-white/40 text-xs font-mono font-medium">{pUser.email}</p>
+                                <span className="mt-1.5 inline-block text-[8px] bg-neon-yellow/10 text-neon-yellow border border-neon-yellow/30 px-2.5 py-0.5 rounded font-black uppercase tracking-wider">
+                                  {pUser.role} PENDIENTE
+                                </span>
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleUpdateUserStatus(pUser.id, 'approved')}
+                                  className="w-10 h-10 bg-neon-green/10 text-neon-green border border-neon-green/30 rounded-xl hover:bg-neon-green hover:text-black flex items-center justify-center font-black transition-all"
+                                  title="Aprobar Operador"
+                                >
+                                  <Check size={20} />
+                                </button>
+                                <button
+                                  onClick={() => handleUpdateUserStatus(pUser.id, 'denied')}
+                                  className="w-10 h-10 bg-white/5 text-white/30 border border-white/10 rounded-xl hover:bg-red-600 hover:text-white flex items-center justify-center font-black transition-all"
+                                  title="Denegar Operador"
+                                >
+                                  <X size={20} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+
+                          {users.filter(u=>u.status==='pending').length === 0 && (
+                            <p className="col-span-full py-8 text-center text-white/20 text-xs uppercase font-bold">No hay solicitudes pendientes en curso.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Approved operators list */}
+                      <div className="space-y-4 pt-6">
+                        <h4 className="text-white/60 text-xs font-black uppercase tracking-widest">
+                          🛡️ Personal Auxiliar Activo en Turno
+                        </h4>
+
+                        <div className="bg-black/40 rounded-3xl border border-white/15 overflow-hidden">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-white/5 text-[9px] uppercase font-black text-white/30 tracking-widest border-b border-white/5">
+                              <tr>
+                                <th className="p-4">Operador</th>
+                                <th className="p-4">Email de Acceso</th>
+                                <th className="p-4 text-center">Nivel Rol</th>
+                                <th className="p-4 text-center">Estado Auditor</th>
+                                <th className="p-4 text-right">Acción</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 font-medium text-white/80">
+                              {users.filter(u=>u.status === 'approved').map(u => (
+                                <tr key={u.id} className="hover:bg-white/5">
+                                  <td className="p-4 font-bold text-white flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-md bg-white/10 flex items-center justify-center text-[10px] font-black uppercase text-neon-blue">
+                                      {u.username[0]}
+                                    </div>
+                                    {u.username}
+                                  </td>
+                                  <td className="p-4 font-mono text-white/40">{u.email}</td>
+                                  <td className="p-4 text-center">
+                                    <span className={`text-[8px] font-black border uppercase px-2 py-0.5 rounded ${
+                                      u.role === 'Administrador' ? 'border-neon-yellow/30 text-neon-yellow' : 'border-white/10 text-white/50'
+                                    }`}>
+                                      {u.role}
+                                    </span>
+                                  </td>
+                                  <td className="p-4 text-center text-neon-green text-[9px] font-black uppercase">● AUTORIZADO CONTRATO</td>
+                                  <td className="p-4 text-right">
+                                    {u.id !== '1' && (
+                                      <button onClick={() => handleDeleteUser(u.id)} className="p-1 rounded text-white/20 hover:text-red-500 hover:bg-red-500/10">
+                                        <Trash2 size={13} />
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-red-950/10 border border-red-900/30 p-12 text-center rounded-[3.5rem] uppercase text-red-400 font-extrabold text-sm tracking-widest">
+                       ⚠️ ACCESO DENEGADO: REQUERIDO OPERADOR PRINCIPAL ADMINISTRADOR #04
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </AnimatePresence>
       </main>
-      
-      {/* Background Neon Orbs */}
+
+      {/* Cyber ambient grid particles */}
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none -z-10 overflow-hidden">
-        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-neon-blue/5 rounded-full blur-[120px]"></div>
-        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-neon-green/5 rounded-full blur-[120px]"></div>
+        <div className="absolute top-[-10%] right-[-10%] w-[45%] h-[45%] bg-neon-blue/5 rounded-full blur-[140px]"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[45%] h-[45%] bg-neon-green/5 rounded-full blur-[140px]"></div>
       </div>
     </div>
   );
